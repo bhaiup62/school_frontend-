@@ -24,7 +24,7 @@ const navGroups = [
     label: 'Academic Master',
     items: [
       { href: '/admin-dashboard/academics', label: 'Academic Sessions', icon: CalendarDays },
-      { href: '/admin-dashboard/classes', label: 'Classes & Subjects', icon: BookOpen },
+      { href: '/admin-dashboard/academics/classsubject', label: 'Classes & Subjects', icon: BookOpen },
       { href: '/admin-dashboard/exams', label: 'Exam Engine', icon: Award },
     ]
   },
