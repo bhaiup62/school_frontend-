@@ -28,3 +28,6 @@ export const getEventsBySession = async (sessionId: string) =>
 
 export const deleteCalendarEvent = async (id: string) =>
   api.delete(`/admin/academics/calendar/events/${id}`)
+
+export const rolloverSession = async (data: { oldSessionId: string, newSessionId: string }) =>
+  api.post('/admin/academics/sessions/rollover', data)

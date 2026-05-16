@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AdminLayout from '@/components/admin/AdminLayout'
-import { getAllSessions, createSession } from '@/services/admin/academicService'
+import { getAllSessions, createSession, rolloverSession } from '@/services/admin/academicService'
 import { 
   GraduationCap, ArrowLeft, RefreshCw, Plus, 
   Calendar, CheckCircle2, AlertCircle, Eye, Settings, X
@@ -16,7 +16,9 @@ export default function SessionsManagerPage() {
   
   // Modal State
   const [showModal, setShowModal] = useState(false)
+  const [showRolloverModal, setShowRolloverModal] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRollingOver, setIsRollingOver] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     sessionName: '',
@@ -25,8 +27,12 @@ export default function SessionsManagerPage() {
     attendanceBackdateLimit: 3,
     minAttendancePercentage: 75
   })
+  const [rolloverForm, setRolloverForm] = useState({
+    oldSessionId: '',
+    newSessionId: ''
+  })
 
-  const loadSessions = async () => {
+  const fetchSessions = async () => {
     setIsRefreshing(true)
     try {
       const res = await getAllSessions()
@@ -40,7 +46,7 @@ export default function SessionsManagerPage() {
   }
 
   useEffect(() => {
-    loadSessions()
+    fetchSessions()
   }, [])
 
   const handleCreateSession = async (e: React.FormEvent) => {
@@ -52,11 +58,29 @@ export default function SessionsManagerPage() {
       await createSession(formData)
       setShowModal(false)
       setFormData({ sessionName: '', startDate: '', endDate: '', attendanceBackdateLimit: 3, minAttendancePercentage: 75 })
-      loadSessions() // Refresh the table
+      fetchSessions() // Refresh the table
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create session. Check if name already exists.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleRollover = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!rolloverForm.oldSessionId || !rolloverForm.newSessionId) return
+
+    setIsRollingOver(true)
+    try {
+      const res = await rolloverSession(rolloverForm)
+      alert(res.data?.message || 'Session rollover completed successfully.')
+      setShowRolloverModal(false)
+      setRolloverForm({ oldSessionId: '', newSessionId: '' })
+      fetchSessions()
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to rollover session data.')
+    } finally {
+      setIsRollingOver(false)
     }
   }
 
@@ -70,7 +94,7 @@ export default function SessionsManagerPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Academics Hub
           </Link>
           <button 
-            onClick={loadSessions} 
+            onClick={fetchSessions} 
             disabled={isRefreshing}
             className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors disabled:opacity-50"
           >
@@ -87,12 +111,20 @@ export default function SessionsManagerPage() {
             </h1>
             <p className="text-slate-500 text-sm mt-1">Create and manage academic years and their core rules.</p>
           </div>
-          <button 
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-600/20"
-          >
-            <Plus className="w-4 h-4" /> New Session
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRolloverModal(true)}
+              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors border border-slate-300"
+            >
+              Rollover Data
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg shadow-blue-600/20"
+            >
+              <Plus className="w-4 h-4" /> Create Session
+            </button>
+          </div>
         </div>
 
         {/* ── Sessions Table ── */}
@@ -206,6 +238,65 @@ export default function SessionsManagerPage() {
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-70">
                   {isSubmitting ? 'Creating...' : 'Create Session'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Data Rollover Modal ── */}
+      {showRolloverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h2 className="font-bold text-slate-800 text-lg">Data Rollover</h2>
+              <button onClick={() => setShowRolloverModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRollover} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Copy From Session</label>
+                  <select
+                    required
+                    value={rolloverForm.oldSessionId}
+                    onChange={(e) => setRolloverForm({ ...rolloverForm, oldSessionId: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:border-blue-500 outline-none"
+                  >
+                    <option value="">Select source session</option>
+                    {sessions.map((session) => (
+                      <option key={`old-${session._id}`} value={session._id}>
+                        {session.sessionName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">Target Session</label>
+                  <select
+                    required
+                    value={rolloverForm.newSessionId}
+                    onChange={(e) => setRolloverForm({ ...rolloverForm, newSessionId: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:border-blue-500 outline-none"
+                  >
+                    <option value="">Select target session</option>
+                    {sessions.map((session) => (
+                      <option key={`new-${session._id}`} value={session._id}>
+                        {session.sessionName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setShowRolloverModal(false)} className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200">Cancel</button>
+                <button type="submit" disabled={isRollingOver} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-blue-600/20 disabled:opacity-70">
+                  {isRollingOver ? 'Rolling Over...' : 'Start Rollover'}
                 </button>
               </div>
             </form>
