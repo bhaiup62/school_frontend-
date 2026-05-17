@@ -31,3 +31,6 @@ export const deleteCalendarEvent = async (id: string) =>
 
 export const rolloverSession = async (data: { oldSessionId: string, newSessionId: string }) =>
   api.post('/admin/academics/sessions/rollover', data)
+
+export const getClasses = async () =>
+  api.get('/admin/admissions/setup/classes')

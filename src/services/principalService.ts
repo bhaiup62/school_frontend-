@@ -1482,3 +1482,27 @@ export const bulkRestrictReportCards = async (studentIds: string[], restrict: bo
   const res = await api.put('/principal/finance/bulk-restrict', { studentIds, restrict })
   return res.data
 }
+
+export interface PeriodPayload {
+  periodNumber: number
+  startTime: string
+  endTime: string
+  subjectId: string
+  teacherId: string
+}
+
+export interface TimetablePayload {
+  classId: string
+  dayOfWeek: string
+  periods: PeriodPayload[]
+}
+
+export const saveClassTimetable = async (payload: TimetablePayload) => {
+  const res = await api.post('/principal/timetable', payload)
+  return res.data
+}
+
+export const getClassTimetable = async (classId: string) => {
+  const res = await api.get(`/principal/timetable/${classId}`)
+  return res.data
+}
