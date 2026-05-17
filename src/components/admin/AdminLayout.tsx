@@ -26,6 +26,7 @@ const navGroups = [
       { href: '/admin-dashboard/academics', label: 'Academic Sessions', icon: CalendarDays },
       { href: '/admin-dashboard/academics/classsubject', label: 'Classes & Subjects', icon: BookOpen },
       { href: '/admin-dashboard/exams', label: 'Exam Engine', icon: Award },
+      { href: '/admin-dashboard/academics/timetable', label: 'Timetable Builder', icon: CalendarDays },
     ]
   },
   {

@@ -1,5 +1,19 @@
 import api from '@/lib/axios'
 
+export interface PeriodPayload {
+  periodNumber: number
+  startTime: string
+  endTime: string
+  subjectId: string
+  teacherId: string
+}
+
+export interface TimetablePayload {
+  classId: string
+  dayOfWeek: string
+  periods: PeriodPayload[]
+}
+
 // SESSION MANAGEMENT
 export const createSession = async (data: any) =>
   api.post('/admin/academics/sessions', data)
@@ -34,3 +48,13 @@ export const rolloverSession = async (data: { oldSessionId: string, newSessionId
 
 export const getClasses = async () =>
   api.get('/admin/admissions/setup/classes')
+
+export const saveClassTimetable = async (payload: TimetablePayload) => {
+  const { data } = await api.post('/admin/academics/timetable', payload)
+  return data
+}
+
+export const getClassTimetable = async (classId: string) => {
+  const { data } = await api.get(`/admin/academics/timetable/${classId}`)
+  return data
+}
