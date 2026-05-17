@@ -28,7 +28,7 @@ const createDefaultPeriods = (): PeriodPayload[] =>
 
 export default function PrincipalTimetablePage() {
   const { handleError } = useErrorHandler()
-  const { showSuccess } = useToast()
+  const { showSuccess, showError } = useToast()
 
   const [classes, setClasses] = useState<any[]>([])
   const [selectedClass, setSelectedClass] = useState('')
@@ -98,23 +98,42 @@ export default function PrincipalTimetablePage() {
     fetchClassData()
   }, [selectedClass])
 
-  const handleSaveTimetable = async () => {
+  const handleSave = async () => {
     if (!selectedClass) return
 
     setSaving(true)
     try {
+      const validPeriods = periods.filter(
+        (period) => Boolean(period.subjectId?.trim()) && Boolean(period.teacherId?.trim())
+      )
+
       const payload: TimetablePayload = {
         classId: selectedClass,
         dayOfWeek: selectedDay,
-        periods,
+        periods: validPeriods,
       }
       await saveClassTimetable(payload)
-      showSuccess('Timetable saved successfully.')
-    } catch (error) {
-      handleError(error, 'Save class timetable')
+      showSuccess('Timetable saved successfully!')
+    } catch (error: any) {
+      const status = error?.response?.status
+      const message = error?.response?.data?.message
+
+      if (status === 409) {
+        showError(message || 'Collision! Teacher is already booked in another class.')
+      } else {
+        handleError(error, 'Save class timetable')
+      }
     } finally {
       setSaving(false)
     }
+  }
+
+  const handlePeriodChange = (index: number, field: string, value: string) => {
+    setPeriods((prev) =>
+      prev.map((period, periodIndex) =>
+        periodIndex === index ? { ...period, [field]: value } : period
+      )
+    )
   }
 
   return (
@@ -129,7 +148,7 @@ export default function PrincipalTimetablePage() {
       />
 
       <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 w-full">
             <div>
               <label className="mb-2 flex items-center gap-2 text-xs font-bold uppercase text-slate-600">
@@ -168,16 +187,6 @@ export default function PrincipalTimetablePage() {
               </select>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleSaveTimetable}
-            disabled={!selectedClass || saving}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Timetable'}
-          </button>
         </div>
 
         <div className="mt-3 text-xs text-slate-500">
@@ -187,7 +196,86 @@ export default function PrincipalTimetablePage() {
           {classMapping ? ' Mappings loaded.' : ''}
         </div>
 
-        <div className="mt-8 text-center text-slate-600">Select a class to load the grid</div>
+        <div className="mt-8 overflow-x-auto">
+          <table className="min-w-full border border-slate-200 rounded-xl overflow-hidden">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-600">Period</th>
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-600">Start Time</th>
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-600">End Time</th>
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-600">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-bold uppercase text-slate-600">Teacher</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {periods.slice(0, 8).map((period, index) => (
+                <tr key={`period-${index}`} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-800">{index + 1}</td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="time"
+                      value={period.startTime}
+                      onChange={(e) => handlePeriodChange(index, 'startTime', e.target.value)}
+                      disabled={!selectedClass || loading}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="time"
+                      value={period.endTime}
+                      onChange={(e) => handlePeriodChange(index, 'endTime', e.target.value)}
+                      disabled={!selectedClass || loading}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={period.subjectId}
+                      onChange={(e) => handlePeriodChange(index, 'subjectId', e.target.value)}
+                      disabled={!selectedClass || loading}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 bg-white"
+                    >
+                      <option value="">Select subject</option>
+                      {(classMapping?.subjects || []).map((item: any) => (
+                        <option key={item.subject?._id} value={item.subject?._id}>
+                          {item.subject?.subjectName}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={period.teacherId}
+                      onChange={(e) => handlePeriodChange(index, 'teacherId', e.target.value)}
+                      disabled={!selectedClass || loading}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 bg-white"
+                    >
+                      <option value="">Select teacher</option>
+                      {(classMapping?.subjects || []).map((item: any) => (
+                        <option key={item.teacher?._id} value={item.teacher?._id}>
+                          {`${item.teacher?.firstName || ''} ${item.teacher?.lastName || ''}`.trim()}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !selectedClass}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            {saving ? 'Saving...' : 'Save Timetable'}
+          </button>
+        </div>
       </div>
     </PrincipalLayout>
   )

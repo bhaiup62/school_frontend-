@@ -49,6 +49,7 @@ const navGroups = [
       { href: '/principal-dashboard/events', label: 'Events', icon: Calendar },
       { href: '/principal-dashboard/finance', label: 'Finance', icon: Wallet },
       { href: '/principal-dashboard/reports', label: 'Reports', icon: BarChart3 },
+      { href: '/principal-dashboard/timetable', label: 'Timetable', icon: Calendar },
     ]
   },
   {
