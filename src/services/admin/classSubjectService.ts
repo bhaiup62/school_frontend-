@@ -38,8 +38,10 @@ export const assignSubjectToClass = async (classId: string, data: any) =>
 export const getSubjectsForClass = async (classId: string) =>
   api.get(`/admin/academics/classes/${classId}/subjects`)
 
-export const getClassSubjectMappings = async (classId: string) =>
-  api.get(`/admin/academics/classes/${classId}/subjects`)
+export const getClassSubjectMappings = async (classId: string, section?: string) => {
+  const sectionQuery = section ? `?section=${encodeURIComponent(section)}` : ''
+  return api.get(`/admin/academics/classes/${classId}/subjects${sectionQuery}`)
+}
 
 export const removeSubjectFromClass = async (mappingId: string) =>
   api.delete(`/admin/academics/mappings/${mappingId}`)

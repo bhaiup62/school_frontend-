@@ -10,6 +10,7 @@ export interface PeriodPayload {
 
 export interface TimetablePayload {
   classId: string
+  section: string
   dayOfWeek: string
   periods: PeriodPayload[]
 }
@@ -54,7 +55,7 @@ export const saveClassTimetable = async (payload: TimetablePayload) => {
   return data
 }
 
-export const getClassTimetable = async (classId: string) => {
-  const { data } = await api.get(`/admin/academics/timetable/${classId}`)
+export const getClassTimetable = async (classId: string, section: string) => {
+  const { data } = await api.get(`/admin/academics/timetable/${classId}?section=${section}`)
   return data
 }
