@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { Providers } from '@/components/Providers'
+import { ToastProvider } from '@/components/ui/ToastProvider'
 
 export const metadata: Metadata = {
   title: 'Saraswati Public School | Excellence in Education',
@@ -25,11 +26,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-sans">
+        <ToastProvider>
         <Providers>
           <Navbar />
           <main>{children}</main>
           <Footer />
         </Providers>
+        </ToastProvider>
       </body>
     </html>
   )
