@@ -349,6 +349,11 @@ export const getMyLeaveRequests = async (params?: {
   return data
 }
 
+export const getMyLeaveBalance = async () => {
+  const response = await api.get('/teacher/leave-balance')
+  return response.data
+}
+
 // ══════════════════════════════════════════════════════════════
 // COMPLAINTS
 // ══════════════════════════════════════════════════════════════

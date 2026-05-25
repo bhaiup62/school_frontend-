@@ -1,31 +1,29 @@
-// src/app/teacher-dashboard/leaves/page.tsx
-
 'use client'
 
 import { useState, useEffect } from 'react'
 import TeacherLayout from '@/components/teacher/TeacherLayout'
 import { 
   Calendar, Plus, Clock, CheckCircle, XCircle, 
-  Filter, CalendarRange, Send, X, AlertTriangle, FileText, RefreshCw
+  Filter, CalendarRange, Send, X, AlertTriangle, FileText, RefreshCw, Scale
 } from 'lucide-react'
 import * as teacherService from '@/services/teacherService'
-
-type LeaveRequest = teacherService.LeaveRequest
 
 const leaveTypes = [
   { value: 'casual', label: 'Casual Leave' },
   { value: 'sick', label: 'Sick Leave' },
   { value: 'earned', label: 'Earned Leave' },
-  { value: 'other', label: 'Other / Special Leave' },
+  { value: 'other', label: 'Leave Without Pay (LWP)' },
 ]
 
 export default function TeacherLeavesPage() {
-  const [leaves, setLeaves] = useState<LeaveRequest[]>([])
+  const [leaves, setLeaves] = useState<any[]>([])
+  const [balance, setBalance] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showNewModal, setShowNewModal] = useState(false)
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
+  // Form State (Backend still expects fromDate and toDate payload)
   const [form, setForm] = useState({
     leaveType: 'casual',
     fromDate: '',
@@ -40,10 +38,14 @@ export default function TeacherLeavesPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const res = await teacherService.getMyLeaveRequests({ status: filterStatus || undefined })
-      setLeaves(res.data || [])
+      const [leavesRes, balanceRes] = await Promise.all([
+        teacherService.getMyLeaveRequests({ status: filterStatus || undefined }),
+        teacherService.getMyLeaveBalance()
+      ])
+      setLeaves(leavesRes.data || [])
+      setBalance(balanceRes.data || null)
     } catch (err) {
-      console.error('Failed to load leaves:', err)
+      console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
     }
@@ -64,14 +66,17 @@ export default function TeacherLeavesPage() {
         reason: '',
       })
       loadData()
-    } catch (err) {
+    } catch (err: any) {
+      // Show backend error if insufficient balance
+      alert(err?.response?.data?.message || 'Failed to submit leave')
       console.error('Failed to submit leave:', err)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const getDaysCount = (from: string, to: string) => {
+  // Used only for previewing the days count inside the Form Modal before submitting
+  const getPreviewDaysCount = (from: string, to: string) => {
     const start = new Date(from)
     const end = new Date(to)
     const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -80,12 +85,12 @@ export default function TeacherLeavesPage() {
 
   const stats = {
     total: leaves.length,
-    pending: leaves.filter(l => l.status === 'pending').length,
-    approved: leaves.filter(l => l.status === 'approved').length,
-    rejected: leaves.filter(l => l.status === 'rejected').length,
+    pending: leaves.filter(l => l.status === 'Pending').length,
+    approved: leaves.filter(l => l.status === 'Approved').length,
+    rejected: leaves.filter(l => l.status === 'Rejected').length,
   }
 
-  if (loading && leaves.length === 0) {
+  if (loading && leaves.length === 0 && !balance) {
     return (
       <TeacherLayout>
         <div className="flex items-center justify-center h-64">
@@ -129,6 +134,35 @@ export default function TeacherLeavesPage() {
           </div>
         </div>
 
+        {/* --- NEW: LEAVE BALANCES WIDGET --- */}
+        {balance && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Scale className="w-4 h-4 text-indigo-500" /> Your Available Leave Balance
+            </h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center">
+                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1">Casual Leave</p>
+                <p className="text-2xl font-black text-blue-600">
+                  {(balance.casualLeaves?.total || 0) - (balance.casualLeaves?.used || 0)} <span className="text-sm font-bold text-blue-400">/ {balance.casualLeaves?.total || 0}</span>
+                </p>
+              </div>
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl text-center">
+                <p className="text-[10px] font-bold text-rose-400 uppercase tracking-wider mb-1">Sick Leave</p>
+                <p className="text-2xl font-black text-rose-600">
+                  {(balance.sickLeaves?.total || 0) - (balance.sickLeaves?.used || 0)} <span className="text-sm font-bold text-rose-400">/ {balance.sickLeaves?.total || 0}</span>
+                </p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-center">
+                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">Earned Leave</p>
+                <p className="text-2xl font-black text-emerald-600">
+                  {(balance.earnedLeaves?.total || 0) - (balance.earnedLeaves?.used || 0)} <span className="text-sm font-bold text-emerald-400">/ {balance.earnedLeaves?.total || 0}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={FileText} label="Total Requests" value={stats.total} color="purple" />
@@ -150,9 +184,9 @@ export default function TeacherLeavesPage() {
               className="w-full sm:w-auto px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-purple-500 transition-all text-slate-700"
             >
               <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
         </div>
@@ -171,7 +205,7 @@ export default function TeacherLeavesPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {leaves.map((leave) => (
-              <LeaveCard key={leave._id} leave={leave} getDaysCount={getDaysCount} />
+              <LeaveCard key={leave._id} leave={leave} />
             ))}
           </div>
         )}
@@ -238,7 +272,7 @@ export default function TeacherLeavesPage() {
                   <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3 text-indigo-800">
                     <Clock className="w-5 h-5 text-indigo-600 shrink-0" />
                     <span className="text-sm font-bold">
-                      Duration: {getDaysCount(form.fromDate, form.toDate)} Day(s) Requested
+                      Duration: {getPreviewDaysCount(form.fromDate, form.toDate)} Day(s) Requested
                     </span>
                   </div>
                 )}
@@ -300,20 +334,21 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
   )
 }
 
-function LeaveCard({ leave, getDaysCount }: { leave: LeaveRequest; getDaysCount: (from: string, to: string) => number }) {
+function LeaveCard({ leave }: { leave: any }) {
+  // Use capitalized keys to match the new backend schema
   const statusConfig = {
-    pending: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: <Clock className="w-4 h-4" /> },
-    approved: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle className="w-4 h-4" /> },
-    rejected: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: <XCircle className="w-4 h-4" /> },
+    Pending: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200', icon: <Clock className="w-4 h-4" /> },
+    Approved: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', icon: <CheckCircle className="w-4 h-4" /> },
+    Rejected: { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200', icon: <XCircle className="w-4 h-4" /> },
   }
   
-  const status = statusConfig[leave.status as keyof typeof statusConfig] || statusConfig.pending
+  const status = statusConfig[leave.status as keyof typeof statusConfig] || statusConfig.Pending
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col group">
       <div className={`h-1.5 w-full bg-gradient-to-r ${
-        leave.status === 'approved' ? 'from-emerald-400 to-green-500' :
-        leave.status === 'pending' ? 'from-amber-400 to-orange-500' : 'from-rose-400 to-red-500'
+        leave.status === 'Approved' ? 'from-emerald-400 to-green-500' :
+        leave.status === 'Pending' ? 'from-amber-400 to-orange-500' : 'from-rose-400 to-red-500'
       }`} />
       
       <div className="p-6">
@@ -331,12 +366,12 @@ function LeaveCard({ leave, getDaysCount }: { leave: LeaveRequest; getDaysCount:
         <div className="mb-4">
           <div className="flex items-center gap-2 text-slate-800 font-bold mb-1">
             <Calendar className="w-4 h-4 text-purple-600" />
-            {new Date(leave.fromDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
+            {new Date(leave.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
             {' '} — {' '}
-            {new Date(leave.toDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {new Date(leave.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-6">
-            Duration: {getDaysCount(leave.fromDate.toString(), leave.toDate.toString())} Day(s)
+            Duration: {leave.totalDays} Day(s)
           </p>
         </div>
 
@@ -346,21 +381,21 @@ function LeaveCard({ leave, getDaysCount }: { leave: LeaveRequest; getDaysCount:
           </p>
         </div>
 
-        {leave.rejectionReason && (
-          <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl mb-4 flex items-start gap-2 text-rose-700">
+        {leave.remarks && leave.status !== 'Pending' && (
+          <div className={`border p-3 rounded-xl mb-4 flex items-start gap-2 ${leave.status === 'Rejected' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-emerald-50 border-emerald-100 text-emerald-700'}`}>
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <span className="font-bold block text-xs uppercase tracking-wider mb-0.5">Rejection Reason</span>
-              <span className="font-medium">{leave.rejectionReason}</span>
+              <span className="font-bold block text-xs uppercase tracking-wider mb-0.5">Admin Remarks</span>
+              <span className="font-medium">{leave.remarks}</span>
             </div>
           </div>
         )}
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
           <span>Applied: {new Date(leave.createdAt).toLocaleDateString()}</span>
-          {leave.approvedAt && (
-            <span className={leave.status === 'approved' ? 'text-emerald-600' : 'text-rose-600'}>
-              Processed: {new Date(leave.approvedAt).toLocaleDateString()}
+          {leave.status !== 'Pending' && (
+            <span className={leave.status === 'Approved' ? 'text-emerald-600' : 'text-rose-600'}>
+              Processed: {new Date(leave.updatedAt).toLocaleDateString()}
             </span>
           )}
         </div>
